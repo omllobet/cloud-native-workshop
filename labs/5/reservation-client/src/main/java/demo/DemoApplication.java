@@ -37,6 +37,12 @@ public class DemoApplication {
                                 "%s %s:%s", si.getServiceId(), si.getHost(), si.getPort())));
     }
 
+	@Bean
+	@LoadBalanced
+	public RestTemplate restTemplate() {
+		return new RestTemplate();
+	}
+
     public static void main(String[] args) {
         SpringApplication.run(DemoApplication.class, args);
     }
