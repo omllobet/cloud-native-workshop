@@ -73,8 +73,8 @@ Example:
           ...
           <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-parent</artifactId>
-            <version>Brixton.M5</version>
+            <artifactId>spring-cloud-dependencies</artifactId>
+            <version>Brixton.RELEASE</version>
             <type>pom</type>
             <scope>import</scope>
           </dependency>
