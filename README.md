@@ -6,11 +6,8 @@ The accompanying code for this workshop is [on Github](http://github.com/joshlon
 
 > microservices, for better or for worse, involve a lot of moving parts. Let's make sure we can run all those things in this lab.
 
-- You will need JDK 8, Maven, an IDE and Docker in order to follow along. Specify important environment variables before opening any IDEs: `JAVA_HOME`, `DOCKER_HOST`.
-- Install [the Spring Boot CLI](http://docs.spring.io/autorepo/docs/spring-boot/current/reference/html/getting-started-installing-spring-boot.html#getting-started-installing-the-cli) and [the Spring Cloud CLI](https://github.com/spring-cloud/spring-cloud-cli).
-- [Install the Cloud Foundry CLI](https://docs.cloudfoundry.org/devguide/installcf/install-go-cli.html)
+- You will need JDK 8, Maven, an IDE and Docker in order to follow along. Specify important environment variables before opening any IDEs: `JAVA_HOME`.
 - Go to the [Spring Initializr](http://start.spring.io) and specify the latest milestone of Spring Boot 1.3 and then choose EVERY checkbox except those related to AWS or Consul, then click generate. In the shell, run `mvn -DskipTests=true clean install` to force the resolution of all those dependencies so you're not stalled later. Then, run `mvn clean install` to force the resolution of the test scoped dependencies. You may discard this project after you've `install`ed everything.
-- _For multi-day workshops only_: Run each of the `.sh` scripts in the `./bin` directory; run `psql.sh` after you've run `postgresh.sh` and confirm that they all complete and emit no obvious errors
 
 (_Some versions of this workshop will not use Docker_)
 
@@ -29,28 +26,6 @@ The accompanying code for this workshop is [on Github](http://github.com/joshlon
 - What is Spring? Spring, fundamentally, is a dependency injection container. This detail is unimportant. What is important is that once Spring is aware of all the objects - _beans_ - in an application, it can provide services to them to support different use cases like persistence, web services, web applications, messaging and integration, etc.
 - Why `.jar`s and not `.war`s? We've found that many organizations deploy only one, not many, application to one Tomcat/Jetty/whatever. They need to configure things like SSL, or GZIP compression, so they end up doing that in the container itself and - because they don't want the versioned configuration for the server to drift out of sync with the code, they end up version controlling the application server artifacts as well as the application itself! This implies a needless barrier between dev and ops which we struggle in every other place to remove.   
 - How do I access the `by-name` search endpoint? Follow the links! visit `http://localhost:8080/reservations` and scroll down and you'll see _links_ that connect you to related resources. You'll see one for `search`. Follow it, find the relevant finder method, and then follow its link.
-
-
-
-## 2. Making a Spring Boot application Production Ready
-
-(_Multi-day workshops only_)
-
-> Code complete != production ready! If you've ever read Michael Nygard's amazing tome, _Release It!_, then you know that the last mile between being code complete and being to production is _much_ longer than anyone ever anticipates. In this lab, we'll look at how Spring Boot is optimized for the continuous delivery of applications into production.
-
-- Add `org.springframework.boot`:`spring-boot-starter-actuator`
-- customize the `HealthEndpoint` by contributing a custom `HealthIndicator`
-- Start `./bin/graphite.sh`  
-- Configure two environment variables `GRAPHITE_HOST` (`export GRAPHITE_HOST="$DOCKER_IP"`) and `GRAPHITE_PORT` (`2003`) (you may need to restart your IDE to _see_ these new environment variables)
-- Add a `GraphiteReporter` bean
-- Add `io.dropwizard.metrics`:`metrics-graphite`
-- Build an executable `.jar` (UNIX-specific) using the `<executable/>` configuration flag
-- Add the HAL browser - `org.springframework.data`:`spring-data-rest-hal-browser` and view the Actuator endpoints using that
-- Configure Maven resource filtering and the Git commit ID plugin in the `pom.xml` in all existing and subsequent `pom.xml`s, or extract out a common parent `pom.xml` that all modules may extend.
-- Add `info.build.artifact=${project.artifactId}` and `info.build.version=${project.version}`  to `application.properties`.
-- Introduce a new `@RepositoryEventHandler` and `@Component`. Provide handlers for `@HandleAfterCreate`, `@HandleAfterSave`, and `@HandleAfterDelete`. Extract common counters to a shared method
-- Add a semantic metric using `CounterService` and observe the histogram in Graphite
-
 
 
 ##  3. The Config Server
@@ -152,94 +127,3 @@ Trigger a refresh of the message using the `/refresh` endpoint.
 - Identify it is as `hystrix-dashboard` in `bootstrap.properties` and point it to config server.
 - Annotate it with `@EnableHystrixDashboard` and run it. You should be able to load it at `http://localhost:8010/hystrix.html`. It will expect a heartbeat stream from any of the services with a circuit breaker in them. Give it the address from the `reservation-client`: `http://localhost:9999/hystrix.stream`
 
-## 6. To the Cloud!
-
-> Spring Cloud helps you develop services that are resilient to failure - they're _fault tolerant_. If a service goes down, they'll degrade gracefully, and correctly expand to accommodate the available capacity. But who starts and stops these services? You need a platform for that. In this lab, we'll use a free trial account at Pivotal Web Services to demonstrate how to deploy, scale and heal our services.
-
-- Do a `mvn clean install` to get binaries for each of the modules
-- _Optionally_: Comment out the `GraphiteReporter` bean in `reservation-service`
-- Remove the `<executable/>` attribute from your Maven build plugin
-- Make sure that each Maven build defines a `<finalName>` element as: `<finalName>${project.artifactId}</finalName>` so that you can consistently refer to the built artifact from each Cloud Foundry manifest.
-- Sign up for a free trial [account at Pivotal Web Services](http://run.pivotal.io/).
-- Change the various `bootstrap.properties` files to load configuration from an environment property, `vcap.services.config-service.credentials.uri`, _or_, if that's not available, `http://localhost:8888`: `spring.cloud.config.uri=${vcap.services.config-service.credentials.uri:http://localhost:8888}`
-- `cf login` the Pivotal Web Services endpoint, `api.run.pivotal.io` and then enter your credentials for the free trial account you've signed up for.
-- Enable the Spring Boot actuator `/shutdown` endpoint  in the Config Server `application.properties`: `endpoints.shutdown.enabled=true`
-- Describe each service - its RAM, DNS `route`, and required services - using a `manifest.yml` file collocated with each binary
-
-> You may generate the `manifest.yml` manually or you may use a tool like Spring Tool Suite's Spring Boot Dashboard which will, on deploy, prompt you to save the deployment configuration as a `manifest.yml`.
-
-_Multi-day workshop_:
-
-- run `cf.sh` in the `labs/6` folder to deploy the whole suite of services to [Pivotal Web Services](http://run.pivotal.io), **OR**:
-- follow the steps in `cf-simple.sh`. This will `cf push` the `eureka-service` and `config-service`. It will use `cf cups` to create services that are available to `reservation-service` and `reservation-client` as environment variables, just like any other standard service. Then, it will `cf push` `reservation-client` and `reservation-service`, binding to those services. See `cf-simple.sh` for details and comments - you should be able to follow along on Windows as well.
-
-> As you push new instances, you'll get new routes because of the configuration in the `manifest.yml` which specifies host is "...-${random-word}". When creating the user-provided-services (`cf cups ..`) be sure to choose only the first route. To delete orphaned routes, use `cf delete-orphaned-routes`
-
-> if you're running the `cf cups` commands, remember to quote and escape correctly, e.g.: `cf cups "{ \"uri":\"..\" }"`
-
-- `cf scale -i 4 reservation-service` to scale that single service to 4 instances. Call the `/shutdown` actuator endpoint for `reservation-client`: `curl -d{} http://_RESERVATION_CLIENT_ROUTE_/shutdown`, replacing `_RESERVATION_CLIENT_ROUTE_`.
-- observe that `cf apps` records the downed, _flapping_ service and eventually restores it.
-- observe that the configuration for the various cloud-specific backing services is handled in terms of various configuration files in the Config Server suffixed with `-cloud.properties`.
-
-> if you need to delete an application, you can use `cf d _APP_NAME_`, where `_APP_NAME_` is your application's logical name. If you want to delete a service, use `cf ds _SERVICE_NAME_` where `_SERVICE_NAME_` is a logical name for the service. Use `-f` to force the deletion without confirmation.
-
-## 7. Streams
-> while REST is an easy, powerful approach to building services, it doesn't provide much in the way of guarantees about state. A failed write needs to be retried, requiring more work of the client. Messaging, on the other hand, guarantees that _eventually_ the intended write will be processed. Eventual consistency works most of the time; even banks don't use distributed transactions! In this lab, we'll look at Spring Cloud Stream which builds atop Spring Integration and the messaging subsystem from Spring XD. Spring Cloud Stream provides the notion of _binders_ that automatically wire up message egress and ingress given a valid connection factory and an agreed upon destination (e.g.: `reservations` or `orders`).
-
-- start `./bin/rabbitmq.sh`.
-> This will install a RabbitMQ instance that is available at `$DOCKER_IP`. You'll also be able to access the console, which is available `http://$DOCKER_IP:15672`. The username and password to access the console are `guest`/`guest`.
-
-- add `org.springframework.cloud`:`spring-cloud-starter-stream-rabbit` to both the `reservation-client` and `reservation-service`.
-
-> Sources - like water from a faucet - describe where messages may come from. In our example, messages come from the `reservation-client` that wishes to write messages to the `reservation-service` from the API gateway.
-
-- add `@EnableBinding(Source.class)` to the `reservation-client` `DemoApplication`
-- create a new REST endpoint - a `POST` endpoint that accepts a `@RequestBody Reservation reservation` - in the `ReservationApiGatewayRestController` to accept new reservations  
-- observe that the `Source.class` describes one or more Spring `MessageChannel`s which are themselves annotated with useful qualifiers like `@Output("output")`.
-- in the new endpoint, inject the Spring `MessageChannel` and qualify it with `@Output("output")` - the same one as in the `Source.class` definition.
-- use the `MessageChannel` to send a message to the `reservation-service`. Connect the two modules through a agreed upon name, which we'll call `reservations`.
-- Observe that this is specified in the config server for us in the `reservation-service` module: `spring.cloud.stream.bindings.output=reservations`. `output` is arbitrary and refers to the (arbitrary) channel of the same name described and referenced from the `Source.class` definition.
-
-> Sinks receive messages that flow _to_ this service (like the kitchen sink into which water from the faucet flows).
-
-- add `@EnableBinding(Sink.class)` to the `reservation-service`  `DemoApplication`
-- observe that the `Sink.class` describes one or more Spring `MessageChannel`s which are themselves annotated with useful qualifiers like `@Input("input")`.
-- create a new `@MessagingEndpoint` that has a `@ServiceActivator`-annotated handler method to receive messages whose payload is of type `String`, the `reservationName` from the `reservation-client`.  
-- use the `String` to save new `Reservation`s using an injected `ReservationRepository`
-- Observe that this is specified in the config server for us in the `reservation-client` module: `spring.cloud.stream.bindings.input=reservations`. `input` is arbitrary and refers to the (arbitrary) channel of the same name described in the `Sink.class` definition.
-
-
-
-## 8. Distributed Tracing with Zipkin
-
-> Distributed tracing lets us trace the path of a request from one service to another. It's very useful in understanding where a failure is occurring in a complex chain of calls.
-
-- run `./bin/zipkin.sh`
-- add `org.springframework.cloud`:`spring-cloud-starter-zipkin` to both the `reservation-service` and the `reservation-client`
-- configure a `@Bean` of type `AlwaysSampler` for both the `reservation-service` and `reservation-client`.
-- observe that as messages flow in and out of the `reservation-client`, you can observe their correspondances and sequences in a waterfall graph in the ZipKin web UI at `http://$DOCKER_HOST:8080` by drilling down to the service of choice. You can further drill down to see the headers and nature of the exchange between endpoints.
-
-## Security
-- add `org.springframework.cloud`:`spring-cloud-starter-oauth2` to the `reservation-client`.
-- add `@EnableOAuthSso`
-- observe that we've already pointed it to use GitHub for authentication in the config server's `application.properties`
-- in the `reservation-client`, create a new REST endpoint called `/user/info` and use it to expose the authenticated principal to the authenticated client.
-- confirm this works by launching a new browser in incognito mode and then hitting the protected resource
-- switch to a qualified `loadBalancedOauth2RestTemplate` instead of any old `@RestTemplate`.
-- **EXTRA CREDIT**: use Spring Security OAuth's Authroization Server instead of GitHub
-
-## Optimize for Velocity and Consistency
-- create a parent dependency that in turn defines all the Git Commit ID plugins, the executable jars, etc.
-- package up common resources like `logstash.xml`
-- create a new stereotypical and task-centric Maven `starter` dependency that in turn brings in commonly used dependencies like `org.springframework.cloud`:`spring-cloud-starter-zipkin`, `org.springframework.cloud`:`spring-cloud-starter-eureka`,
-`org.springframework.cloud`:`spring-cloud-starter-config`, `org.springframework.cloud`:`spring-cloud-starter-stream-binder-rabbit`, `org.springframework.boot`:`spring-boot-starter-actuator`, `net.logstash.logback`:`logstash-logback-encoder`:`4.2`,
-- extract all the repeated code into auto-configuration: the `AlwaysSampler` bean, `@EnableDiscoveryClient`, the custom `HealthIndicator`s.
-- **EXTRA CREDIT**: define a Logger that is in turn a proxy that can only be injected using a custom qualfier (`@Logstash`)
-
-## Log Aggregation and Analysis with ELK
-- run `./bin/elk.sh`
-- add `net.logstash.logback`:`logstash-logback-encoder`:`4.2` to the `reservation-service` and `reservation-client`
-- add `logback.xml` to each project's `resources` directory. it should be configured to point to the value of `$DOCKER_HOST` or some DNS entry
-- import `org.slf4j.Logger` and `org.slf4j.LoggerFactory`
-- declare a logger: `Logger LOGGER = LoggerFactory.getLogger( DemoApplication.class);`
-- in the `reservation-service`, use `LogstashMarker`s to emit interesting semantic logs to be collected by the Kibana UI at `http://$DOCKER_HOST:...`
